@@ -6,266 +6,208 @@
     <title>Graph Architect Pro</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.26.0/cytoscape.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    
     <script>
         tailwind.config = {
             darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Plus Jakarta Sans', 'sans-serif'],
-                        mono: ['Fira Code', 'monospace'],
-                    },
-                }
-            }
+            theme: { extend: { fontFamily: { sans: ['Plus Jakarta Sans', 'sans-serif'], mono: ['Fira Code', 'monospace'] } } }
         }
     </script>
     <style>
-        #cy { width: 100%; height: 100%; }
-        .transition-theme { transition: background-color 0.4s ease, color 0.4s ease, border-color 0.4s ease; }
+        #cy { width: 100%; height: 100%; z-index: 10; cursor: crosshair; }
+        .transition-theme { transition: background-color 0.3s ease, color 0.3s ease; }
+        .active-tool { background-color: #6366f1 !important; color: white !important; border-color: #6366f1 !important; }
+        .canvas-container { background-image: radial-gradient(circle, #cbd5e1 1px, transparent 1px); background-size: 30px 30px; }
+        .dark .canvas-container { background-image: radial-gradient(circle, #1e293b 1px, transparent 1px); }
+        #floatingInput { display: none; pointer-events: auto; }
     </style>
 </head>
-<body class="transition-theme bg-slate-50 text-slate-900 dark:bg-[#0f172a] dark:text-slate-100 h-screen flex flex-col overflow-hidden">
+<body class="transition-theme bg-slate-50 text-slate-900 dark:bg-[#020617] dark:text-slate-100 h-screen flex flex-col overflow-hidden">
 
-    <header class="h-16 border-b border-slate-200 dark:border-slate-800 px-6 flex justify-between items-center bg-white/50 dark:bg-[#0f172a]/50 backdrop-blur-md z-50">
-        <div class="flex items-center gap-4">
+    <header class="h-14 border-b border-slate-200 dark:border-slate-800 px-6 flex justify-between items-center bg-white dark:bg-[#0f172a] z-50 shadow-sm">
+        <div class="flex items-center gap-6">
             <div class="flex items-center gap-2">
-                <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-                </div>
-                <h1 class="font-extrabold text-xl tracking-tight">Graph<span class="text-indigo-600">Lab</span></h1>
+                <i data-lucide="share-2" class="w-5 h-5 text-indigo-500"></i>
+                <h1 class="font-bold text-lg tracking-tight">Graph<span class="text-indigo-500">Architect</span></h1>
             </div>
-            <div id="typeIndicator" class="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-widest text-slate-500">Auto-Detecting</div>
+            <div id="typeIndicator" class="px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-900/30 text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Directed</div>
         </div>
-
-        <div class="flex items-center gap-3">
-            <div class="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
-                <button id="setDirected" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-white dark:bg-slate-700 shadow-sm">Directed</button>
-                <button id="setUndirected" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-500">Undirected</button>
+        <div class="flex items-center gap-4">
+            <div class="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
+                <button id="setDirected" class="px-3 py-1 rounded text-xs font-semibold transition-all bg-white dark:bg-slate-600 shadow-sm">Directed</button>
+                <button id="setUndirected" class="px-3 py-1 rounded text-xs font-semibold transition-all text-slate-50">Undirected</button>
             </div>
-            <button id="themeToggle" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 hover:scale-105 transition-all shadow-sm">
-                <span id="themeIcon">☀️</span>
+            <button id="themeToggle" class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
+                <i id="themeIcon" data-lucide="sun" class="w-4 h-4"></i>
             </button>
         </div>
     </header>
 
     <main class="flex flex-1 overflow-hidden">
-        <aside class="w-96 flex flex-col border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1e293b]/30">
-            <div class="p-5 flex flex-col h-full gap-4">
-                <div class="space-y-1">
-                    <h2 class="text-sm font-bold text-slate-400 uppercase tracking-tighter">Input Source</h2>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">Paste an Adj List, JSON, or JS Object.</p>
+        <aside class="w-80 flex flex-col border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0f172a] z-20 shadow-xl">
+            <div class="p-4 flex flex-col h-full gap-6">
+                <div class="flex flex-col flex-1 gap-2">
+                    <div class="flex items-center justify-between">
+                        <label class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Editor</label>
+                        <button id="clearBtn" class="text-[11px] text-red-500 hover:text-red-400 font-bold">CLEAR</button>
+                    </div>
+                    <textarea id="editor" class="flex-1 w-full p-4 font-mono text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#020617] outline-none transition-all resize-none shadow-inner focus:ring-1 focus:ring-indigo-500" spellcheck="false">A: B, C&#10;B: D&#10;C: D</textarea>
                 </div>
 
-                <textarea id="editor" 
-                    class="flex-1 w-full p-4 font-mono text-sm rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#020617] focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all shadow-inner"
-                    spellcheck="false">/**
- * Smart Input:
- * Try "A: B, C" or JSON
- */
-const graph = {
-  "Router_1": ["Switch_A", "Switch_B"],
-  "Switch_A": ["PC_1", "PC_2"],
-  "Switch_B": ["Server_1"],
-  "Server_1": ["Router_1"]
-}</textarea>
-
-                <div class="flex gap-2">
-                    <button id="clearBtn" class="flex-1 py-3 text-sm font-bold border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">Clear</button>
-                    <button id="runBtn" class="flex-[2] py-3 text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-lg shadow-indigo-500/40 transition-all">Generate Graph</button>
+                <div class="space-y-2">
+                    <label class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Tools</label>
+                    <div class="flex flex-col gap-2">
+                        <button id="addNodeTool" class="flex items-center gap-3 p-3 text-sm font-medium border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-indigo-50 dark:hover:bg-indigo-900/10 transition-all">
+                            <i data-lucide="plus" class="w-4 h-4"></i> Add Vertex
+                        </button>
+                        <button id="addEdgeTool" class="flex items-center gap-3 p-3 text-sm font-medium border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-indigo-50 dark:hover:bg-indigo-900/10 transition-all">
+                            <i data-lucide="move-up-right" class="w-4 h-4"></i> Link Vertices
+                        </button>
+                        <button id="deleteTool" class="flex items-center gap-3 p-3 text-sm font-medium border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/10 transition-all text-red-500">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i> Remove Item
+                        </button>
+                    </div>
                 </div>
+                <button id="runBtn" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-all shadow-lg">Apply Layout</button>
             </div>
         </aside>
 
-        <section class="flex-1 relative bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] dark:bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:20px_20px]">
+        <section class="flex-1 relative canvas-container overflow-hidden">
             <div id="cy"></div>
-            
-            <div class="absolute top-6 right-6 flex flex-col gap-2">
-                <div class="px-4 py-2 bg-white/80 dark:bg-slate-900/80 backdrop-blur rounded-lg border border-slate-200 dark:border-slate-800 shadow-xl text-[11px]">
-                    <span class="text-slate-400 italic">Pro Tip: Scroll to zoom, drag to move nodes.</span>
-                </div>
+
+            <div id="floatingInput" class="absolute z-[100] bg-white dark:bg-slate-800 border-2 border-indigo-500 rounded-lg p-1 shadow-2xl flex items-center gap-1 min-w-[120px]">
+                <input type="text" id="nodeNameInput" placeholder="Name..." class="bg-transparent text-sm font-bold px-2 py-1 outline-none w-full">
+                <button id="confirmNodeBtn" class="p-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700">
+                    <i data-lucide="check" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <div class="absolute bottom-6 right-6 flex flex-col gap-2 z-30">
+                <button id="fitBtn" class="p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg hover:scale-110 transition-all">
+                    <i data-lucide="maximize" class="w-4 h-4"></i>
+                </button>
             </div>
         </section>
     </main>
 
     <script>
-        let cy;
-        let forceMode = 'auto'; // 'auto', 'directed', 'undirected'
+        let cy, forceMode = 'directed', currentTool = null, edgeSource = null, lastModelPos = null;
         const editor = document.getElementById('editor');
-        const themeToggle = document.getElementById('themeToggle');
+        const floatingInput = document.getElementById('floatingInput');
+        const nodeNameInput = document.getElementById('nodeNameInput');
         const htmlRoot = document.documentElement;
 
-        // --- THEME ENGINE ---
-        function toggleTheme() {
-            htmlRoot.classList.toggle('dark');
-            const isDark = htmlRoot.classList.contains('dark');
-            document.getElementById('themeIcon').innerText = isDark ? '☀️' : '🌙';
-            localStorage.setItem('theme', isDark ? 'dark' : 'light');
-            if (cy) updateGraphStyle();
-        }
-
-        // --- SMART PARSER & NORMALIZER ---
-        function parseInput(input) {
-            let data = {};
-            let elements = [];
-            const nodes = new Set();
-            const edges = [];
-            const edgeTracker = new Set();
-
-            let clean = input.trim();
-            // 1. Remove Variable Declarations (const g = ...)
-            if (clean.includes('=')) {
-                clean = clean.split('=')[1].trim().replace(/;$/, '');
-            }
-            // 2. Remove Block Comments
-            clean = clean.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, "");
-
-            try {
-                // Try JSON / Object
-                data = JSON.parse(clean.replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":').replace(/'/g, '"'));
-            } catch (e) {
-                // Fallback to Adj List Text
-                const lines = input.split('\n');
-                lines.forEach(line => {
-                    const parts = line.split(':');
-                    if (parts.length > 1) {
-                        data[parts[0].trim()] = parts[1].split(',').map(v => v.trim()).filter(v => v);
-                    }
-                });
-            }
-
-            // 3. Process into Cytoscape Format
-            const keys = Object.keys(data);
-            let hasReciprocity = false;
-
-            keys.forEach(source => {
-                nodes.add(source);
-                const targets = Array.isArray(data[source]) ? data[source] : [data[source]];
-                
-                targets.forEach(target => {
-                    const targetStr = String(target);
-                    nodes.add(targetStr);
-
-                    // Normalization: Sort IDs to prevent parallel lines in undirected mode
-                    const pair = [source, targetStr].sort();
-                    const edgeId = `e_${pair[0]}_${pair[1]}`;
-                    
-                    if (forceMode === 'undirected' || (forceMode === 'auto' && input.toLowerCase().includes('undirected'))) {
-                        if (!edgeTracker.has(edgeId)) {
-                            edgeTracker.add(edgeId);
-                            edges.push({ data: { id: edgeId, source: source, target: targetStr } });
-                        }
-                    } else {
-                        // Directed mode: allow A->B and B->A as separate curves
-                        edges.push({ data: { id: `e_${source}_${targetStr}_${Math.random()}`, source: source, target: targetStr } });
-                    }
-                });
-            });
-
-            nodes.forEach(id => elements.push({ data: { id } }));
-            return [...elements, ...edges];
-        }
-
-        // --- GRAPH RENDERER ---
-        function render() {
-            const elements = parseInput(editor.value);
-            const isUndirected = forceMode === 'undirected' || (forceMode === 'auto' && editor.value.toLowerCase().includes('undirected'));
-            
-            document.getElementById('typeIndicator').innerText = isUndirected ? 'Mode: Undirected' : 'Mode: Directed';
-
+        function initGraph(elements) {
             cy = cytoscape({
                 container: document.getElementById('cy'),
                 elements: elements,
-                boxSelectionEnabled: false,
-                autounselectify: true,
                 style: getGraphStyle(),
-                layout: { 
-                    name: 'cose', 
-                    animate: true, 
-                    refresh: 20, 
-                    nodeRepulsion: 8000, 
-                    idealEdgeLength: 100 
+                layout: { name: 'cose', animate: true, padding: 50 },
+                wheelSensitivity: 0.2
+            });
+
+            cy.on('tap', (evt) => {
+                const target = evt.target;
+
+                if (currentTool === 'node' && target === cy) {
+                    const pos = evt.renderedPosition;
+                    lastModelPos = evt.position;
+                    floatingInput.style.display = 'flex';
+                    floatingInput.style.left = `${pos.x}px`;
+                    floatingInput.style.top = `${pos.y}px`;
+                    nodeNameInput.value = '';
+                    setTimeout(() => nodeNameInput.focus(), 10);
+                } 
+                else if (currentTool === 'delete' && target !== cy) {
+                    cy.remove(target);
+                    syncEditor();
+                }
+                else if (currentTool === 'edge' && target.group() === 'nodes') {
+                    if (!edgeSource) {
+                        edgeSource = target;
+                        target.style({'border-color': '#6366f1', 'border-width': '6px'});
+                    } else {
+                        cy.add({ data: { id: `e${Date.now()}`, source: edgeSource.id(), target: target.id() } });
+                        edgeSource.style({'border-width': '3px', 'border-color': htmlRoot.classList.contains('dark') ? '#020617' : '#fff'});
+                        edgeSource = null;
+                        syncEditor();
+                    }
+                }
+                if (target !== cy && currentTool !== 'node') floatingInput.style.display = 'none';
+            });
+        }
+
+        document.getElementById('confirmNodeBtn').onclick = () => {
+            const val = nodeNameInput.value.trim();
+            if (val && lastModelPos) {
+                cy.add({ data: { id: val }, position: lastModelPos });
+                syncEditor();
+            }
+            floatingInput.style.display = 'none';
+        };
+
+        nodeNameInput.onkeydown = (e) => {
+            if (e.key === 'Enter') document.getElementById('confirmNodeBtn').click();
+            if (e.key === 'Escape') floatingInput.style.display = 'none';
+        };
+
+        function syncEditor() {
+            let output = "";
+            cy.nodes().forEach(n => {
+                const targets = cy.edges(`[source="${n.id()}"]`).map(e => e.target().id());
+                output += `${n.id()}: ${targets.join(', ')}\n`;
+            });
+            editor.value = output.trim();
+        }
+
+        function parseAndRender() {
+            const elements = [], nodes = new Set();
+            editor.value.split('\n').forEach(line => {
+                const [s, tList] = line.split(':');
+                if (s?.trim()) {
+                    nodes.add(s.trim());
+                    if (tList) tList.split(',').forEach(t => { if(t.trim()){ nodes.add(t.trim()); elements.push({ data: { source: s.trim(), target: t.trim() } }); } });
                 }
             });
+            nodes.forEach(n => elements.unshift({ data: { id: n } }));
+            initGraph(elements);
         }
 
         function getGraphStyle() {
             const isDark = htmlRoot.classList.contains('dark');
-            const isUndirected = forceMode === 'undirected' || (forceMode === 'auto' && editor.value.toLowerCase().includes('undirected'));
-
             return [
-                {
-                    selector: 'node',
-                    style: {
-                        'label': 'data(id)',
-                        'background-color': '#4f46e5',
-                        'color': isDark ? '#f1f5f9' : '#1e293b',
-                        'text-valign': 'center',
-                        'text-halign': 'center',
-                        'width': 45,
-                        'height': 45,
-                        'font-family': 'Plus Jakarta Sans',
-                        'font-weight': 'bold',
-                        'font-size': '10px',
-                        'border-width': 4,
-                        'border-color': isDark ? '#0f172a' : '#ffffff',
-                        'border-opacity': 1,
-                        'text-outline-color': isDark ? '#0f172a' : '#ffffff',
-                        'text-outline-width': 2
-                    }
-                },
-                {
-                    selector: 'edge',
-                    style: {
-                        'width': 2,
-                        'line-color': isDark ? '#334155' : '#cbd5e1',
-                        'target-arrow-color': isDark ? '#334155' : '#cbd5e1',
-                        'target-arrow-shape': isUndirected ? 'none' : 'triangle',
-                        'curve-style': isUndirected ? 'haystack' : 'bezier',
-                        'arrow-scale': 1.5,
-                        'line-cap': 'round'
-                    }
-                },
-                {
-                    selector: 'node:selected',
-                    style: { 'background-color': '#818cf8', 'border-color': '#4f46e5' }
-                }
+                { selector: 'node', style: { 'label': 'data(id)', 'background-color': '#6366f1', 'color': isDark ? '#fff' : '#1e293b', 'text-valign': 'center', 'width': 42, 'height': 42, 'font-weight': '700', 'font-size': '12px', 'border-width': 3, 'border-color': isDark ? '#020617' : '#fff' } },
+                { selector: 'edge', style: { 'width': 2.5, 'line-color': isDark ? '#334155' : '#cbd5e1', 'target-arrow-shape': forceMode === 'directed' ? 'triangle' : 'none', 'curve-style': forceMode === 'directed' ? 'bezier' : 'haystack', 'target-arrow-color': isDark ? '#334155' : '#cbd5e1', 'arrow-scale': 1.3 } }
             ];
         }
 
-        function updateGraphStyle() {
-            cy.style(getGraphStyle()).update();
-        }
-
-        // --- EVENT LISTENERS ---
-        themeToggle.addEventListener('click', toggleTheme);
-        document.getElementById('runBtn').addEventListener('click', render);
-        document.getElementById('clearBtn').addEventListener('click', () => { editor.value = ''; });
-
-        const dirBtn = document.getElementById('setDirected');
-        const undirBtn = document.getElementById('setUndirected');
-
-        dirBtn.addEventListener('click', () => {
-            forceMode = 'directed';
-            dirBtn.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-white dark:bg-slate-700 shadow-sm";
-            undirBtn.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-500";
-            render();
+        const toolBtns = { node: document.getElementById('addNodeTool'), edge: document.getElementById('addEdgeTool'), delete: document.getElementById('deleteTool') };
+        Object.keys(toolBtns).forEach(k => {
+            toolBtns[k].onclick = () => {
+                floatingInput.style.display = 'none'; edgeSource = null;
+                if (currentTool === k) { currentTool = null; toolBtns[k].classList.remove('active-tool'); }
+                else { Object.values(toolBtns).forEach(b => b.classList.remove('active-tool')); currentTool = k; toolBtns[k].classList.add('active-tool'); }
+            };
         });
 
-        undirBtn.addEventListener('click', () => {
-            forceMode = 'undirected';
-            undirBtn.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-white dark:bg-slate-700 shadow-sm";
-            dirBtn.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-500";
-            render();
-        });
+        document.getElementById('themeToggle').onclick = () => {
+            htmlRoot.classList.toggle('dark');
+            document.getElementById('themeIcon').setAttribute('data-lucide', htmlRoot.classList.contains('dark') ? 'sun' : 'moon');
+            lucide.createIcons();
+            if(cy) cy.style(getGraphStyle()).update();
+        };
 
-        // Initialize theme from storage
-        if (localStorage.getItem('theme') === 'light') {
-            htmlRoot.classList.remove('dark');
-            document.getElementById('themeIcon').innerText = '🌙';
-        }
+        document.getElementById('runBtn').onclick = parseAndRender;
+        document.getElementById('clearBtn').onclick = () => { editor.value = ""; parseAndRender(); };
+        document.getElementById('fitBtn').onclick = () => cy.fit();
 
-        window.onload = render;
+        const dBtn = document.getElementById('setDirected'), uBtn = document.getElementById('setUndirected');
+        dBtn.onclick = () => { forceMode = 'directed'; dBtn.className = "px-3 py-1 rounded text-xs font-semibold bg-white dark:bg-slate-600 shadow-sm"; uBtn.className = "px-3 py-1 rounded text-xs font-semibold text-slate-50"; document.getElementById('typeIndicator').innerText = "Directed"; parseAndRender(); };
+        uBtn.onclick = () => { forceMode = 'undirected'; uBtn.className = "px-3 py-1 rounded text-xs font-semibold bg-white dark:bg-slate-600 shadow-sm"; dBtn.className = "px-3 py-1 rounded text-xs font-semibold text-slate-50"; document.getElementById('typeIndicator').innerText = "Undirected"; parseAndRender(); };
+
+        window.onload = () => { lucide.createIcons(); parseAndRender(); };
     </script>
 </body>
 </html>
